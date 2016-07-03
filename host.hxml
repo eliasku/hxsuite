@@ -1,0 +1,3 @@
+-cp src
+-main hxsuite.Host
+-neko host/index.n
