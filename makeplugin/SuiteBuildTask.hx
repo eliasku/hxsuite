@@ -1,4 +1,3 @@
-import haxe.Timer;
 import hxmake.utils.Haxelib;
 import hxmake.cli.CL;
 import sys.FileSystem;
@@ -20,13 +19,23 @@ class SuiteBuildTask extends Task {
 	public inline static var DOMAIN:String = "localhost";
 	public inline static var PORT:Int = 2001;
 
+	public var main:String;
+	public var classPath:Array<String> = [];
 	public var libraries:Array<String> = [];
+
+	var _mainClass:String;
 
 	public function new() {
 
 	}
 
 	override public function run() {
+
+		CL.workingDir.push(module.path);
+
+		var typePath = main.split(".");
+		_mainClass = typePath[typePath.length - 1];
+
 		var toIgnore = ["lua", "python", "hl"];
 		var runTargets:Array<RunTarget> = [
 			{target: "cpp"},
@@ -59,16 +68,28 @@ class SuiteBuildTask extends Task {
 			optimize(t.target, t.opt);
 		}
 
+		if(Sys.command("haxe", [
+			"-cp", Path.join([Haxelib.libPath("hxsuite"), "src"]),
+			"-main", "hxsuite.Host",
+			"-neko", "host/index.n"]) != 0) {
+
+			fail("Compile error");
+		}
+
 		if(module.project.args.indexOf("-build") < 0) {
 			var hostProcess:Process = new Process("nekotools", ["server", "-p", Std.string(PORT), "-h", DOMAIN, "-d", "host/"]);
-			Sys.println(hostProcess.stdout.readLine());
-			Timer.delay(function() {
-				runTests(selectedTargets, function() {
-					Sys.command("open", ["http://" + getHostName() + "/?cmd=report"]);
-					Sys.exit(hostProcess.exitCode());
-				});
-			}, SERVE_START_WAIT_MS);
+			Sys.sleep(SERVE_START_WAIT_MS / 1000);
+			try {
+				Sys.println(hostProcess.stdout.readLine());
+			}
+			catch(e:Dynamic) {}
+			runTests(selectedTargets, function() {
+				Sys.command("open", ["http://" + getHostName() + "/?cmd=report"]);
+				Sys.exit(hostProcess.exitCode());
+			});
 		}
+
+		CL.workingDir.pop();
 	}
 
 	function runTests(targets:Array<RunTarget>, onComplete:Void->Void) {
@@ -83,17 +104,18 @@ class SuiteBuildTask extends Task {
 
 	function getCommonBuildOptions(target:String):Array<String> {
 		var args = [];
-		for(cp in module.config.classPath) {
+		for(cp in module.config.classPath.concat(classPath)) {
 			args.push("-cp");
 			args.push(cp);
 		}
+
 		args.push("-main");
-		args.push("hxsuite.Main");
+		args.push(main);
 
 		args.push("-D");
 		args.push("target=" + target);
 
-		for(lib in libraries) {
+		for(lib in libraries.concat(["hxsuite"])) {
 			args.push("-lib");
 			args.push(lib);
 		}
@@ -153,6 +175,7 @@ class SuiteBuildTask extends Task {
 				throw "Unknown target '" + target + "'";
 		}
 
+		Sys.println('> haxe ${args.join(" ")}');
 		if(Sys.command("haxe", args) != 0) {
 			throw "Build failed";
 		}
@@ -175,7 +198,7 @@ class SuiteBuildTask extends Task {
 		var args = [];
 		switch(runTarget.target) {
 			case "cpp":
-				cmd = "./build/cpp/Main";
+				cmd = "./build/cpp/" + _mainClass;
 //			case "hl":
 //				cmd = "gcc";
 //				args = ["./build/hl.c"];
@@ -233,7 +256,12 @@ class SuiteBuildTask extends Task {
 	function hostBuild(target:String, ckind:String, bin:String):String {
 		var tplName = 'browse-$target';
 		var hostedName = ckind != null ? '$tplName-$ckind.html' : '$tplName.html';
-		var tpl = new Template(File.getContent(Path.join([module.path, 'make/$tplName.html'])));
+		var mpp = Haxelib.libPath("hxsuite");
+		var tpl = new Template(File.getContent(Path.join([mpp, 'makeplugin/$tplName.html'])));
+
+		if(!FileSystem.exists("host")) {
+			FileSystem.createDirectory("host");
+		}
 		File.saveContent("host/" + hostedName, tpl.execute({BIN_PATH:bin}));
 		File.copy("build/" + bin, "host/" + bin);
 		return 'http://${getHostName()}/$hostedName';
@@ -251,9 +279,8 @@ class SuiteBuildTask extends Task {
 				onComplete();
 			}
 			else {
-				haxe.Timer.delay(function() {
-					waitTarget(target, opt, onComplete);
-				}, TARGET_PING_INVERVAL_MS);
+				Sys.sleep(TARGET_PING_INVERVAL_MS / 1000);
+				waitTarget(target, opt, onComplete);
 			}
 		}
 		http.onError = function(msg:String) {
@@ -301,7 +328,7 @@ class SuiteBuildTask extends Task {
 			return false;
 		}
 		Sys.println("yui compression...");
-		var yuiPath = Path.join([Haxelib.getLibraryInstallPath("hxmake"), "resources", "yuicompressor-2.4.7.jar"]);
+		var yuiPath = Path.join([Haxelib.libPath("hxmake"), "resources", "yuicompressor-2.4.7.jar"]);
 		var result = CL.execute(javaBin, ["-Dapple.awt.UIElement=true", "-jar", yuiPath, "-o", output, input]);
 		if(result.exitCode != 0) {
 			Sys.println(result.stderr);
@@ -316,7 +343,7 @@ class SuiteBuildTask extends Task {
 			return false;
 		}
 		Sys.println("js-compiler compression...");
-		var compilerPath = Path.join([Haxelib.getLibraryInstallPath("hxmake"), "resources", "compiler.jar"]);
+		var compilerPath = Path.join([Haxelib.libPath("hxmake"), "resources", "compiler.jar"]);
 		var args = ["-Dapple.awt.UIElement=true", "-jar", compilerPath, "--js", input, "--js_output_file", output];
 		//if (!LogHelper.verbose) {
 		//args.push("--jscomp_off=uselessCode");
