@@ -1,8 +1,17 @@
 {
 	"name": "hxsuite",
+	"license": "https://github.com/eliasku/hxsuite",
+	"tags": [
+		"hxmake",
+		"cross",
+		"run",
+		"benchmark",
+		"tools"
+	],
 	"classPath": "src",
-	"description": "",
-	"contributors": [],
-	"version": "0.0.1",
-	"dependencies": {}
+	"description": "Cross-platform running tasks",
+	"contributors": [
+		"eliasku"
+	],
+	"version": "0.0.1"
 }

@@ -10,6 +10,12 @@ class HxSuiteMake extends hxmake.Module {
 		apply(hxmake.idea.IdeaPlugin);
 		apply(hxmake.haxelib.HaxelibPlugin);
 
-		library();
+		var cfg = library().config;
+		cfg.version = "0.0.1";
+		cfg.description = "Cross-platform running tasks";
+		cfg.url = "https://github.com/eliasku/hxsuite";
+		cfg.tags = ["hxmake", "cross", "run", "benchmark", "tools"];
+		cfg.contributors = ["eliasku"];
+		cfg.license = "MIT";
 	}
 }
