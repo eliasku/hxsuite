@@ -196,6 +196,8 @@ class SuiteBuildTask extends Task {
 		var async = false;
 		var cmd = null;
 		var args = [];
+		var mainPath = main.split(".");
+		var mainName = mainPath[mainPath.length - 1];
 		switch(runTarget.target) {
 			case "cpp":
 				cmd = "./build/cpp/" + _mainClass;
@@ -227,10 +229,10 @@ class SuiteBuildTask extends Task {
 				args = ["build/lua.lua"];
 			case "java":
 				cmd = javaBin;//"java";
-				args = ["-jar", "build/java/Main.jar"];
+				args = ["-jar", 'build/java/$mainName.jar'];
 			case "cs":
 				cmd = "mono";
-				args = ["-O=all", "build/cs/bin/Main.exe"];
+				args = ["-O=all", 'build/cs/bin/$mainName.exe'];
 			case "php":
 				cmd = "php";
 				args = ["build/php/index.php"];
