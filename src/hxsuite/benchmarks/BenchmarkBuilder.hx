@@ -98,8 +98,10 @@ class BenchmarkBuilder {
 			case FFun(func):
 				switch(func.expr.expr) {
 					case EBlock(exprs):
-
 						var totalOps:Float = 0;
+						var index:Int = 0;
+						var startIndex:Int = 0;
+						var endIndex:Int = exprs.length;
 						for(expr in exprs) {
 							switch(expr.expr) {
 								case ExprDef.EMeta(s, e):
@@ -117,12 +119,15 @@ class BenchmarkBuilder {
 											}
 											loop = {expr: ExprDef.EBlock(b), pos: e.pos};
 										}
+										startIndex = index;
 										expr.expr = EMeta(s,
-											macro for(i in 0...__iterations) ${loop}
+											macro for(__current_iteration_index__ in 0...__iterations) ${loop}
 											);
+										endIndex = index + 1;
 									}
 								default:
 							}
+							++index;
 						}
 
 						if(totalOps == 0) {
@@ -138,10 +143,10 @@ class BenchmarkBuilder {
 
 						switch(ps.expr) {
 							case EBlock(es):
-								exprs.unshift(es[0]);
-								exprs.unshift(es[1]);
-								exprs.push(es[2]);
-								exprs.push(es[3]);
+								exprs.insert(startIndex, es[0]);
+								exprs.insert(startIndex + 1, es[1]);
+								exprs.insert(endIndex + 2, es[2]);
+								exprs.insert(endIndex + 3, es[3]);
 							default:
 						}
 					default:
