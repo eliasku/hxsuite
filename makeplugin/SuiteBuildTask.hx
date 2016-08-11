@@ -42,10 +42,10 @@ class SuiteBuildTask extends Task {
 			{target: "js"},
 			//{target: "js", opt: "min"},
 			//{target: "js", opt: "yui"},
-			{target: "nodejs"},
-			//{target: "nodejs", opt: "min"},
-			//{target: "nodejs", opt: "yui"},
-			{target: "flash"},
+			{target: "node"},
+			//{target: "node", opt: "min"},
+			//{target: "node", opt: "yui"},
+			{target: "swf"},
 			{target: "java"},
 			{target: "cs"}
 			//{target: "python"}
@@ -138,7 +138,7 @@ class SuiteBuildTask extends Task {
 			case "neko":
 				args.push("-neko");
 				args.push("build/neko.n");
-			case "nodejs":
+			case "node":
 				args.push("-lib");
 				args.push("hxnodejs");
 				args.push("-js");
@@ -146,7 +146,7 @@ class SuiteBuildTask extends Task {
 			case "js":
 				args.push("-js");
 				args.push("build/browser.js");
-			case "flash":
+			case "swf":
 				args.push("-D");
 				args.push("network-sandbox");
 				args.push("-swf");
@@ -186,7 +186,7 @@ class SuiteBuildTask extends Task {
 			if(target == "js") {
 				minify("build/browser.js", opt, true);
 			}
-			else if(target == "nodejs") {
+			else if(target == "node") {
 				minify("build/node.js", opt, false);
 			}
 		}
@@ -207,7 +207,7 @@ class SuiteBuildTask extends Task {
 			case "neko":
 				cmd = "neko";
 				args = ["build/neko.n"];
-			case "nodejs":
+			case "node":
 				cmd = "node";
 				var file = runTarget.opt != null ? ("node." + runTarget.opt + ".js") : "node.js";
 				args = ["build/" + file];
@@ -216,7 +216,7 @@ class SuiteBuildTask extends Task {
 				cmd = "open";
 				args = [url];
 				async = true;
-			case "flash":
+			case "swf":
 				var url = hostBuild("flash", null, "flash.swf");
 				cmd = "open";
 				args = [url];
