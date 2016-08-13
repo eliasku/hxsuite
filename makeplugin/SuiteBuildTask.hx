@@ -47,7 +47,8 @@ class SuiteBuildTask extends Task {
 			//{target: "node", opt: "yui"},
 			{target: "swf"},
 			{target: "java"},
-			{target: "cs"}
+			{target: "cs"},
+			{target: "neko"}
 			//{target: "python"}
 		];// "hl", "lua"];
 		var selectedTargets:Array<RunTarget> = [];
