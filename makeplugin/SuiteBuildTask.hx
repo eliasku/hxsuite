@@ -25,6 +25,12 @@ class SuiteBuildTask extends Task {
 
 	var _mainClass:String;
 
+	var _testIds:Array<String> = [];
+	var _testIdIndex:Int = 0;
+	var _targets:Array<RunTarget> = [];
+	var _testId:String;
+	var _hostProcess:Process;
+
 	public function new() {
 
 	}
@@ -40,36 +46,64 @@ class SuiteBuildTask extends Task {
 		var runTargets:Array<RunTarget> = [
 			{target: "cpp"},
 			{target: "js"},
-			//{target: "js", opt: "min"},
-			//{target: "js", opt: "yui"},
+				//{target: "js", opt: "min"},
+				//{target: "js", opt: "yui"},
 			{target: "node"},
-			//{target: "node", opt: "min"},
-			//{target: "node", opt: "yui"},
+				//{target: "node", opt: "min"},
+				//{target: "node", opt: "yui"},
 			{target: "swf"},
 			{target: "java"},
 			{target: "cs"},
 			{target: "neko"}
 			//{target: "python"}
 		];// "hl", "lua"];
-		var selectedTargets:Array<RunTarget> = [];
-		for(runTarget in runTargets) {
-			if(module.project.args.indexOf("-" + runTarget.target) >= 0) {
-				selectedTargets.push(runTarget);
+
+		for (runTarget in runTargets) {
+			if (module.project.args.indexOf("-" + runTarget.target) >= 0) {
+				_targets.push(runTarget);
 			}
 		}
-		if(selectedTargets.length == 0) {
-			selectedTargets = runTargets;
+
+		for (arg in module.project.args) {
+			if (arg.indexOf("-testid=") == 0) {
+				var testidsargs = arg.substr("-testid=".length).split(",");
+				_testIds = _testIds.concat(testidsargs);
+			}
+		}
+		if (_testIds.length == 0) {
+			_testIds.push("default");
 		}
 
-		for(t in selectedTargets) {
+		if (_targets.length == 0) {
+			_targets = runTargets;
+		}
+
+		CL.workingDir.pop();
+
+		nextTest();
+	}
+
+	function nextTest() {
+		if (_testIdIndex < _testIds.length) {
+			_testId = _testIds[_testIdIndex];
+		}
+		else {
+			// complete
+			Sys.exit(_hostProcess.exitCode());
+			return;
+		}
+
+		CL.workingDir.push(module.path);
+
+		for (t in _targets) {
 			build(t.target, t.opt);
 		}
 
-		for(t in selectedTargets) {
+		for (t in _targets) {
 			optimize(t.target, t.opt);
 		}
 
-		if(Sys.command("haxe", [
+		if (Sys.command("haxe", [
 			"-cp", Path.join([Haxelib.libPath("hxsuite"), "src"]),
 			"-main", "hxsuite.Host",
 			"-neko", "host/index.n"]) != 0) {
@@ -77,24 +111,32 @@ class SuiteBuildTask extends Task {
 			fail("Compile error");
 		}
 
-		if(module.project.args.indexOf("-build") < 0) {
-			var hostProcess:Process = new Process("nekotools", ["server", "-p", Std.string(PORT), "-h", DOMAIN, "-d", "host/"]);
+		if (module.project.args.indexOf("-build") < 0) {
+			if(_hostProcess != null) {
+				_hostProcess.kill();
+				_hostProcess = null;
+			}
+
+			_hostProcess = new Process("nekotools", ["server", "-p", Std.string(PORT), "-h", DOMAIN, "-d", "host/"]);
 			Sys.sleep(SERVE_START_WAIT_MS / 1000);
 			try {
-				Sys.println(hostProcess.stdout.readLine());
+				Sys.println(_hostProcess.stdout.readLine());
 			}
-			catch(e:Dynamic) {}
-			runTests(selectedTargets, function() {
+			catch (e:Dynamic) {}
+
+			runTests(_targets.copy(), function() {
 				Sys.command("open", ["http://" + getHostName() + "/?cmd=report"]);
-				Sys.exit(hostProcess.exitCode());
+				Sys.sleep(SERVE_START_WAIT_MS / 1000);
+				++_testIdIndex;
+				nextTest();
 			});
 		}
 
 		CL.workingDir.pop();
 	}
 
-	function runTests(targets:Array<RunTarget>, onComplete:Void->Void) {
-		if(targets.length == 0) {
+	function runTests(targets:Array<RunTarget>, onComplete:Void -> Void) {
+		if (targets.length == 0) {
 			onComplete();
 			return;
 		}
@@ -105,7 +147,7 @@ class SuiteBuildTask extends Task {
 
 	function getCommonBuildOptions(target:String):Array<String> {
 		var args = [];
-		for(cp in module.config.classPath.concat(classPath)) {
+		for (cp in module.config.classPath.concat(classPath)) {
 			args.push("-cp");
 			args.push(cp);
 		}
@@ -116,7 +158,10 @@ class SuiteBuildTask extends Task {
 		args.push("-D");
 		args.push("target=" + target);
 
-		for(lib in libraries.concat(["hxsuite"])) {
+		args.push("-D");
+		args.push("testid=" + _testId);
+
+		for (lib in libraries.concat(["hxsuite"])) {
 			args.push("-lib");
 			args.push(lib);
 		}
@@ -177,23 +222,23 @@ class SuiteBuildTask extends Task {
 		}
 
 		Sys.println('> haxe ${args.join(" ")}');
-		if(Sys.command("haxe", args) != 0) {
+		if (Sys.command("haxe", args) != 0) {
 			throw "Build failed";
 		}
 	}
 
 	function optimize(target:String, opt:String) {
-		if(opt != null) {
-			if(target == "js") {
+		if (opt != null) {
+			if (target == "js") {
 				minify("build/browser.js", opt, true);
 			}
-			else if(target == "node") {
+			else if (target == "node") {
 				minify("build/node.js", opt, false);
 			}
 		}
 	}
 
-	function startTest(runTarget:RunTarget, onComplete:Void->Void) {
+	function startTest(runTarget:RunTarget, onComplete:Void -> Void) {
 		var async = false;
 		var cmd = null;
 		var args = [];
@@ -247,7 +292,7 @@ class SuiteBuildTask extends Task {
 
 		postOpt(runTarget.opt, function() {
 			Sys.command(cmd, args);
-			if(async) {
+			if (async) {
 				waitTarget(runTarget.target, runTarget.opt, onComplete);
 			}
 			else {
@@ -262,7 +307,7 @@ class SuiteBuildTask extends Task {
 		var mpp = Haxelib.libPath("hxsuite");
 		var tpl = new Template(File.getContent(Path.join([mpp, 'makeplugin/$tplName.html'])));
 
-		if(!FileSystem.exists("host")) {
+		if (!FileSystem.exists("host")) {
 			FileSystem.createDirectory("host");
 		}
 		File.saveContent("host/" + hostedName, tpl.execute({BIN_PATH:bin}));
@@ -270,15 +315,15 @@ class SuiteBuildTask extends Task {
 		return 'http://${getHostName()}/$hostedName';
 	}
 
-	static function waitTarget(target:String, opt:String, onComplete:Void->Void) {
+	static function waitTarget(target:String, opt:String, onComplete:Void -> Void) {
 		Sys.println("WAITING " + target);
 		var url = "http://" + getHostName() + "/?cmd=status&target=" + target;
-		if(opt != null) {
+		if (opt != null) {
 			url += "&opt=" + opt;
 		}
 		var http = new haxe.Http(url);
 		http.onData = function(data:String) {
-			if(data == "ready") {
+			if (data == "ready") {
 				onComplete();
 			}
 			else {
@@ -292,9 +337,9 @@ class SuiteBuildTask extends Task {
 		http.request(false);
 	}
 
-	static function postOpt(opt:String, onComplete:Void->Void) {
+	static function postOpt(opt:String, onComplete:Void -> Void) {
 		var url = "http://" + getHostName() + "/?cmd=opt";
-		if(opt != null) {
+		if (opt != null) {
 			url += "&opt=" + opt;
 		}
 		var http = new haxe.Http(url);
@@ -311,13 +356,13 @@ class SuiteBuildTask extends Task {
 	static function minify(input:String, opt:String, agressive:Bool) {
 		var output:String = Path.withExtension(input, opt + ".js");
 
-		if(opt == "yui") {
-			if(!yui(input, output)) {
+		if (opt == "yui") {
+			if (!yui(input, output)) {
 				Sys.println("ERROR: yui failed");
 			}
 		}
-		else if(opt == "min") {
-			if(!compjs(input, output, agressive)) {
+		else if (opt == "min") {
+			if (!compjs(input, output, agressive)) {
 				Sys.println("ERROR: compiler js failed");
 			}
 		}
@@ -333,7 +378,7 @@ class SuiteBuildTask extends Task {
 		Sys.println("yui compression...");
 		var yuiPath = Path.join([Haxelib.libPath("hxmake"), "resources", "yuicompressor-2.4.7.jar"]);
 		var result = CL.execute(javaBin, ["-Dapple.awt.UIElement=true", "-jar", yuiPath, "-o", output, input]);
-		if(result.exitCode != 0) {
+		if (result.exitCode != 0) {
 			Sys.println(result.stderr);
 			Sys.println(result.stdout);
 			return false;
@@ -355,7 +400,7 @@ class SuiteBuildTask extends Task {
 		args.push("WHITESPACE_ONLY");
 		//}
 		var result = CL.execute(javaBin, args);
-		if(result.exitCode != 0) {
+		if (result.exitCode != 0) {
 			Sys.println(result.stderr);
 			Sys.println(result.stdout);
 			return false;
