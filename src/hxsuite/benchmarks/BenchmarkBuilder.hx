@@ -55,7 +55,7 @@ class BenchmarkBuilder {
 			args: [],
 			ret: null,
 			expr: macro {
-				baseIterations = $v{globalIterations} + Std.int(Math.random()*10);
+				baseIterations = $v{globalIterations} + Std.int(Math.random());
 				runs = $v{globalRuns} + Std.int(Math.random());
 				mute = false;
 				$b{calls}

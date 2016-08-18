@@ -23,12 +23,16 @@ class SuiteBuildTask extends Task {
 	public var classPath:Array<String> = [];
 	public var libraries:Array<String> = [];
 
+	public var defaultTargets:Array<String> = ["swf", "cpp", "node", "js", "cs", "java"];
+	public var defaultApps:Array<String> = [];
+
 	var _mainClass:String;
 
-	var _testIds:Array<String> = [];
-	var _testIdIndex:Int = 0;
+	var _apps:Array<String> = [];
+	var _appIndex:Int = 0;
+	var _currentApp:String;
+
 	var _targets:Array<RunTarget> = [];
-	var _testId:String;
 	var _hostProcess:Process;
 
 	public function new() {
@@ -42,54 +46,73 @@ class SuiteBuildTask extends Task {
 		var typePath = main.split(".");
 		_mainClass = typePath[typePath.length - 1];
 
-		var toIgnore = ["lua", "python", "hl"];
-		var runTargets:Array<RunTarget> = [
-			{target: "cpp"},
-			{target: "js"},
-				//{target: "js", opt: "min"},
-				//{target: "js", opt: "yui"},
-			{target: "node"},
-				//{target: "node", opt: "min"},
-				//{target: "node", opt: "yui"},
-			{target: "swf"},
-			{target: "java"},
-			{target: "cs"},
-			{target: "neko"}
-			//{target: "python"}
-		];// "hl", "lua"];
-
-		for (runTarget in runTargets) {
-			if (module.project.args.indexOf("-" + runTarget.target) >= 0) {
-				_targets.push(runTarget);
-			}
-		}
+//		var toIgnore = ["lua", "python", "hl"];
+//		var runTargets:Array<RunTarget> = [
+//			{target: "cpp"},
+//			{target: "js"},
+//				//{target: "js", opt: "min"},
+//				//{target: "js", opt: "yui"},
+//			{target: "node"},
+//				//{target: "node", opt: "min"},
+//				//{target: "node", opt: "yui"},
+//			{target: "swf"},
+//			{target: "java"},
+//			{target: "cs"},
+//			{target: "neko"}
+//			//{target: "python"}
+//		];// "hl", "lua"];
 
 		for (arg in module.project.args) {
-			if (arg.indexOf("-testid=") == 0) {
-				var testidsargs = arg.substr("-testid=".length).split(",");
-				_testIds = _testIds.concat(testidsargs);
+			if (arg.indexOf("-target=") == 0) {
+				var targets = arg.substr("-target=".length).split(",");
+				for(targetId in targets) {
+					_targets.push({target: targetId});
+				}
+			}
+			if (arg.indexOf("-app=") == 0) {
+				var apps = arg.substr("-app=".length).split(",");
+				_apps = _apps.concat(apps);
 			}
 		}
-		if (_testIds.length == 0) {
-			_testIds.push("default");
+
+		if (_apps.length == 0) {
+			for(app in defaultApps) {
+				_apps.push(app);
+			}
 		}
 
 		if (_targets.length == 0) {
-			_targets = runTargets;
+			for(targetId in defaultTargets) {
+				_targets.push({ target: targetId });
+			}
 		}
+
+		_hostProcess = new Process("nekotools", ["server", "-p", Std.string(PORT), "-h", DOMAIN, "-d", "host/"]);
+		Sys.sleep(SERVE_START_WAIT_MS / 1000);
+		try {
+			Sys.println(_hostProcess.stdout.readLine());
+		}
+		catch (e:Dynamic) {}
 
 		CL.workingDir.pop();
 
-		nextTest();
+		nextApp();
 	}
 
-	function nextTest() {
-		if (_testIdIndex < _testIds.length) {
-			_testId = _testIds[_testIdIndex];
+	function nextApp() {
+		if (_appIndex < _apps.length) {
+			_currentApp = _apps[_appIndex];
 		}
 		else {
+			Sys.command("open", [getUrl(["cmd" => "report"])]);
+			Sys.sleep(SERVE_START_WAIT_MS / 1000);
 			// complete
-			Sys.exit(_hostProcess.exitCode());
+			if(_hostProcess != null) {
+				_hostProcess.kill();
+				_hostProcess = null;
+			}
+			//Sys.exit(_hostProcess.exitCode());
+			Sys.exit(0);
 			return;
 		}
 
@@ -112,23 +135,9 @@ class SuiteBuildTask extends Task {
 		}
 
 		if (module.project.args.indexOf("-build") < 0) {
-			if(_hostProcess != null) {
-				_hostProcess.kill();
-				_hostProcess = null;
-			}
-
-			_hostProcess = new Process("nekotools", ["server", "-p", Std.string(PORT), "-h", DOMAIN, "-d", "host/"]);
-			Sys.sleep(SERVE_START_WAIT_MS / 1000);
-			try {
-				Sys.println(_hostProcess.stdout.readLine());
-			}
-			catch (e:Dynamic) {}
-
 			runTests(_targets.copy(), function() {
-				Sys.command("open", ["http://" + getHostName() + "/?cmd=report"]);
-				Sys.sleep(SERVE_START_WAIT_MS / 1000);
-				++_testIdIndex;
-				nextTest();
+				++_appIndex;
+				nextApp();
 			});
 		}
 
@@ -159,7 +168,7 @@ class SuiteBuildTask extends Task {
 		args.push("target=" + target);
 
 		args.push("-D");
-		args.push("testid=" + _testId);
+		args.push("app=" + _currentApp);
 
 		for (lib in libraries.concat(["hxsuite"])) {
 			args.push("-lib");
@@ -177,43 +186,43 @@ class SuiteBuildTask extends Task {
 				args.push("no_debug");
 				//args.push("--no-traces");
 				args.push("-cpp");
-				args.push("build/cpp");
+				args.push('build/$_currentApp-cpp');
 //			case "hl":
 //				args.push("-hl");
 //				args.push("build/hl.c");
 			case "neko":
 				args.push("-neko");
-				args.push("build/neko.n");
+				args.push('build/$_currentApp.n');
 			case "node":
 				args.push("-lib");
 				args.push("hxnodejs");
 				args.push("-js");
-				args.push("build/node.js");
+				args.push('build/$_currentApp-node.js');
 			case "js":
 				args.push("-js");
-				args.push("build/browser.js");
+				args.push('build/$_currentApp.js');
 			case "swf":
 				args.push("-D");
 				args.push("network-sandbox");
 				args.push("-swf");
-				args.push("build/flash.swf");
+				args.push('build/$_currentApp.swf');
 			case "python":
 				args.push("-python");
-				args.push("build/python.py");
+				args.push('build/$_currentApp.py');
 			case "lua":
 				args.push("-D");
 				args.push("lua-jit");
 				args.push("-lua");
-				args.push("build/lua.lua");
+				args.push('build/$_currentApp.lua');
 			case "java":
 				args.push("-java");
-				args.push("build/java");
+				args.push('build/$_currentApp-java');
 			case "cs":
 				args.push("-cs");
-				args.push("build/cs");
+				args.push('build/$_currentApp-cs');
 			case "php":
 				args.push("-php");
-				args.push("build/php");
+				args.push('build/$_currentApp-php');
 			case "interp":
 				// skip
 				return;
@@ -230,10 +239,10 @@ class SuiteBuildTask extends Task {
 	function optimize(target:String, opt:String) {
 		if (opt != null) {
 			if (target == "js") {
-				minify("build/browser.js", opt, true);
+				minify('build/$_currentApp.js', opt, true);
 			}
 			else if (target == "node") {
-				minify("build/node.js", opt, false);
+				minify('build/$_currentApp-node.js', opt, false);
 			}
 		}
 	}
@@ -246,42 +255,43 @@ class SuiteBuildTask extends Task {
 		var mainName = mainPath[mainPath.length - 1];
 		switch(runTarget.target) {
 			case "cpp":
-				cmd = "./build/cpp/" + _mainClass;
+				cmd = './build/$_currentApp-cpp/' + _mainClass;
 //			case "hl":
 //				cmd = "gcc";
 //				args = ["./build/hl.c"];
 			case "neko":
 				cmd = "neko";
-				args = ["build/neko.n"];
+				args = ['build/$_currentApp.n'];
 			case "node":
 				cmd = "node";
-				var file = runTarget.opt != null ? ("node." + runTarget.opt + ".js") : "node.js";
-				args = ["build/" + file];
+				var file = runTarget.opt != null ?
+					('$_currentApp-node.' + runTarget.opt + ".js") :'$_currentApp-node.js';
+				args = ['build/$file'];
 			case "js":
-				var url = hostBuild("js", runTarget.opt, runTarget.opt != null ? ("browser." + runTarget.opt + ".js") : "browser.js");
+				var url = hostBuild("js", runTarget.opt, runTarget.opt != null ? ('$_currentApp.' + runTarget.opt + ".js") : '$_currentApp.js');
 				cmd = "open";
 				args = [url];
 				async = true;
 			case "swf":
-				var url = hostBuild("flash", null, "flash.swf");
+				var url = hostBuild("flash", null, '$_currentApp.swf');
 				cmd = "open";
 				args = [url];
 				async = true;
 			case "python":
 				cmd = "python3";
-				args = ["build/python.py"];
+				args = ['build/$_currentApp.py'];
 			case "lua":
 				cmd = "lua";
-				args = ["build/lua.lua"];
+				args = ['build/$_currentApp.lua'];
 			case "java":
-				cmd = javaBin;//"java";
-				args = ["-jar", 'build/java/$mainName.jar'];
+				cmd = javaBin;
+				args = ["-jar", 'build/$_currentApp-java/$mainName.jar'];
 			case "cs":
 				cmd = "mono";
-				args = ["-O=all", 'build/cs/bin/$mainName.exe'];
+				args = ["-O=all", 'build/$_currentApp-cs/bin/$mainName.exe'];
 			case "php":
 				cmd = "php";
-				args = ["build/php/index.php"];
+				args = ['build/$_currentApp-php/index.php'];
 			case "interp":
 				cmd = "haxe";
 				args = getCommonBuildOptions(runTarget.target);
@@ -293,7 +303,7 @@ class SuiteBuildTask extends Task {
 		postOpt(runTarget.opt, function() {
 			Sys.command(cmd, args);
 			if (async) {
-				waitTarget(runTarget.target, runTarget.opt, onComplete);
+				waitTarget(runTarget.target, _currentApp, runTarget.opt, onComplete);
 			}
 			else {
 				onComplete();
@@ -315,12 +325,14 @@ class SuiteBuildTask extends Task {
 		return 'http://${getHostName()}/$hostedName';
 	}
 
-	static function waitTarget(target:String, opt:String, onComplete:Void -> Void) {
+	function waitTarget(target:String, app:String, opt:String, onComplete:Void -> Void) {
 		Sys.println("WAITING " + target);
-		var url = "http://" + getHostName() + "/?cmd=status&target=" + target;
-		if (opt != null) {
-			url += "&opt=" + opt;
-		}
+		var url = getUrl([
+			"cmd" => "status",
+			"opt" => opt,
+			"app" => app,
+			"target" => target
+		]);
 		var http = new haxe.Http(url);
 		http.onData = function(data:String) {
 			if (data == "ready") {
@@ -328,7 +340,7 @@ class SuiteBuildTask extends Task {
 			}
 			else {
 				Sys.sleep(TARGET_PING_INVERVAL_MS / 1000);
-				waitTarget(target, opt, onComplete);
+				waitTarget(target, _currentApp, opt, onComplete);
 			}
 		}
 		http.onError = function(msg:String) {
@@ -338,10 +350,10 @@ class SuiteBuildTask extends Task {
 	}
 
 	static function postOpt(opt:String, onComplete:Void -> Void) {
-		var url = "http://" + getHostName() + "/?cmd=opt";
-		if (opt != null) {
-			url += "&opt=" + opt;
-		}
+		var url = getUrl([
+			"cmd" => "opt",
+			"opt" => opt
+		]);
 		var http = new haxe.Http(url);
 		http.onData = function(data:String) {
 			onComplete();
@@ -410,5 +422,21 @@ class SuiteBuildTask extends Task {
 
 	static function getHostName():String {
 		return DOMAIN + ":" + PORT;
+	}
+
+
+	static function getVariables(map:Map<String, String>):String {
+		var vars = [];
+		for(key in map.keys()) {
+			var value = map.get(key);
+			if(value != null) {
+				vars.push('$key=$value');
+			}
+		}
+		return vars.length > 0 ? ("?" + vars.join("&")) : "";
+	}
+
+	static function getUrl(vars:Map<String, String>):String {
+		return 'http://${getHostName()}/' + getVariables(vars);
 	}
 }

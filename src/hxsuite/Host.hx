@@ -28,12 +28,14 @@ class Host {
 		else if (cmd == "report") {
 			printReport(_reports);
 		}
-		else if (cmd == "opt") {
+		else if (cmd == "") {
 			_currentOpt = params.get("opt");
 		}
 		else if (cmd == "status") {
 			for(r in _reports) {
-				if(r.target == params.get("target") && r.optVersion == params.get("opt")) {
+				if(r.target == params.get("target") &&
+					r.optVersion == params.get("opt") &&
+					r.app == params.get("app")) {
 					Lib.print("ready");
 					Web.flush();
 					return;
@@ -74,7 +76,7 @@ class Host {
 		for(qname in byName.keys()) {
 			var namedReports:Array<Report> = byName.get(qname);
 			namedReports.sort(sortByTarget);
-			var set:Array<Dynamic> = [qname.split(".").pop()];
+			var set:Array<Dynamic> = [qname.split(".").shift()];
 			for(namedReport in namedReports) {
 				set.push(namedReport.speed);
 				set.push(namedReport.speedMin);
@@ -87,9 +89,31 @@ class Host {
 		var dsj = Json.stringify(data);
 		var body = "";
 
+		var tableHtml = '<table style="width:100%">' +
+		'<tr>' +
+		'<th>Target</th>' +
+		'<th>App</th>' +
+		'<th>Suite</th>' +
+		'<th>Method</th>' +
+		'<th>#</th>' +
+		'<th>op/s</th>' +
+		'<th>time min</th>' +
+		'<th>time max</th>' +
+		'</tr>';
+
 		for(report in reports) {
-			body += report.targetTitle + " : " + report.method + " : " + report.ops + " " + report.timeMin + " / " + report.timeMax + "<br/>";
+			tableHtml += '<tr>' +
+			'<td>${report.targetTitle}</td>' +
+			'<td>${report.app}</td>' +
+			'<td>${report.suite}</td>' +
+			'<td>${report.method}</td>' +
+			'<td>${report.ops}</td>' +
+			'<td>${report.speed}</td>' +
+			'<td>${report.timeMin}</td>' +
+			'<td>${report.timeMax}</td>' +
+			'</tr>';
 		}
+		tableHtml += '</table>';
 
 		var script = "google.charts.load('current', {'packages':['corechart']});
       google.charts.setOnLoadCallback(drawChart);
@@ -107,7 +131,7 @@ class Host {
         chart.draw(data, options);
       }";
 
-		var html = '<html><head><script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script><script type="text/javascript">$script</script></head><body><div id="barchart_material" style="width: 900px; height: 500px;"></div>$body</body><html>';
+		var html = '<html><head><script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script><script type="text/javascript">$script</script></head><body><div id="barchart_material" style="width: 900px; height: 500px;"></div>$body $tableHtml</body><html>';
 		Lib.println(html);
 	}
 
@@ -122,7 +146,12 @@ class Host {
 
 class Report {
 	public var qname:String;
+
+	/** Application identifier; different compliled variants of tests **/
+	public var app:String;
+	/** Test suite (named bunch of methods to execute) **/
 	public var suite:String;
+
 	public var method:String;
 	public var target:String;
 	public var targetTitle:String;
@@ -138,6 +167,7 @@ class Report {
 	public function new() {}
 
 	public function parse(params:StringMap<String>, opt:String) {
+		app = params.get("app");
 		suite = params.get("suite");
 		method = params.get("method");
 		target = params.get("target");
@@ -152,7 +182,7 @@ class Report {
 		}
 
 		optVersion = opt;
-		qname = suite + "." + method;
+		qname = app + "." + suite + "." + method;
 		speed = calcSpeed(time, ops);
 		speedMax = calcSpeed(timeMin, ops);
 		speedMin = calcSpeed(timeMax, ops);
