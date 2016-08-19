@@ -104,7 +104,7 @@ class SuiteBuildTask extends Task {
 			_currentApp = _apps[_appIndex];
 		}
 		else {
-			Sys.command("open", [getUrl(["cmd" => "report"])]);
+			openUrl(getUrl(["cmd" => "report"]));
 			Sys.sleep(SERVE_START_WAIT_MS / 1000);
 			// complete
 			if(_hostProcess != null) {
@@ -301,6 +301,9 @@ class SuiteBuildTask extends Task {
 		}
 
 		postOpt(runTarget.opt, function() {
+			if(cmd == "open" && CL.platform.isWindows) {
+				cmd = "start";
+			}
 			Sys.command(cmd, args);
 			if (async) {
 				waitTarget(runTarget.target, _currentApp, runTarget.opt, onComplete);
@@ -438,5 +441,10 @@ class SuiteBuildTask extends Task {
 
 	static function getUrl(vars:Map<String, String>):String {
 		return 'http://${getHostName()}/' + getVariables(vars);
+	}
+
+	static function openUrl(url:String) {
+		var cmd = CL.platform.isWindows ? "start" : "open";
+		Sys.command(cmd, [url]);
 	}
 }
