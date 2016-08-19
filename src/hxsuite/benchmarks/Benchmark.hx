@@ -1,6 +1,5 @@
 package hxsuite.benchmarks;
 
-import haxe.macro.Compiler;
 import haxe.ds.StringMap;
 
 @:autoBuild(hxsuite.benchmarks.BenchmarkBuilder.build())

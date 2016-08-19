@@ -1,3 +1,6 @@
+import hxmake.utils.HaxeTarget;
+import hxmake.utils.Haxe;
+import hxmake.test.HaxeTask;
 import hxmake.utils.Haxelib;
 import hxmake.cli.CL;
 import sys.FileSystem;
@@ -14,8 +17,9 @@ typedef RunTarget = {
 
 class SuiteBuildTask extends Task {
 
-	public inline static var SERVE_START_WAIT_MS:Int = 1000;
-	public inline static var TARGET_PING_INVERVAL_MS:Int = 1000;
+	public inline static var SERVE_START_WAIT_TIME = 2;
+	public inline static var SERVE_KILL_WAIT_TIME = 5;
+	public inline static var TARGET_PING_INVERVAL_TIME = 1;
 	public inline static var DOMAIN:String = "localhost";
 	public inline static var PORT:Int = 2001;
 
@@ -35,32 +39,16 @@ class SuiteBuildTask extends Task {
 	var _targets:Array<RunTarget> = [];
 	var _hostProcess:Process;
 
+	var _hxsuitePath:String;
+
 	public function new() {
 
 	}
 
-	override public function run() {
-
-		CL.workingDir.push(module.path);
-
+	override public function configure() {
+		/** Parse options **/
 		var typePath = main.split(".");
 		_mainClass = typePath[typePath.length - 1];
-
-//		var toIgnore = ["lua", "python", "hl"];
-//		var runTargets:Array<RunTarget> = [
-//			{target: "cpp"},
-//			{target: "js"},
-//				//{target: "js", opt: "min"},
-//				//{target: "js", opt: "yui"},
-//			{target: "node"},
-//				//{target: "node", opt: "min"},
-//				//{target: "node", opt: "yui"},
-//			{target: "swf"},
-//			{target: "java"},
-//			{target: "cs"},
-//			{target: "neko"}
-//			//{target: "python"}
-//		];// "hl", "lua"];
 
 		for (arg in module.project.args) {
 			if (arg.indexOf("-target=") == 0) {
@@ -87,22 +75,27 @@ class SuiteBuildTask extends Task {
 			}
 		}
 
-		if (Sys.command("haxe", [
-			"-cp", Path.join([Haxelib.libPath("hxsuite"), "src"]),
-			"-main", "hxsuite.Host",
-			"-neko", "host/index.n"]) != 0) {
+		_hxsuitePath = Haxelib.libPath("hxsuite");
 
-			fail("Compile error");
-		}
+		var buildHost = new HaxeTask();
+		buildHost.name = "compile-web-host";
+		buildHost.hxml.classPath.push(Path.join([_hxsuitePath, "src"]));
+		buildHost.hxml.main = "hxsuite.Host";
+		buildHost.hxml.target = HaxeTarget.Neko;
+		buildHost.hxml.output = Path.join([module.path, "host", "index.n"]);
+		prepend(buildHost);
+	}
 
-		_hostProcess = new Process("nekotools", ["server", "-p", Std.string(PORT), "-h", DOMAIN, "-d", "host/"]);
-		Sys.sleep(SERVE_START_WAIT_MS / 1000);
+	override public function run() {
+		_hostProcess = new Process("nekotools", ["server", "-p", Std.string(PORT), "-h", DOMAIN, "-d", Path.join([module.path, "host"])]);
+		Sys.sleep(SERVE_START_WAIT_TIME);
 		try {
 			Sys.println(_hostProcess.stdout.readLine());
 		}
-		catch (e:Dynamic) {}
-
-		CL.workingDir.pop();
+		catch (e:Dynamic) {
+			Sys.println("EXCEPTION on running web-host");
+			Sys.println("Expection: " + e);
+		}
 
 		nextApp();
 	}
@@ -113,20 +106,9 @@ class SuiteBuildTask extends Task {
 		}
 		else {
 			openUrl(getUrl(["cmd" => "report"]), true);
-			Sys.sleep(SERVE_START_WAIT_MS / 1000);
-			Sys.println("Press any key to continue...");
-			while(true) {
-				Sys.sleep(0.5);
-				var i = Sys.getChar(false);
-				Sys.println(i);
-				Sys.println("WIN");
-				if(i != 0) {
-					break;
-				}
-			}
-			Sys.println("END");
+//			Sys.println("Press any key to continue...");
+			Sys.sleep(SERVE_KILL_WAIT_TIME);
 			complete();
-			Sys.println("RETURN");
 			return;
 		}
 
@@ -275,10 +257,10 @@ class SuiteBuildTask extends Task {
 					('$_currentApp-node.' + runTarget.opt + ".js") :'$_currentApp-node.js';
 				args = ['build/$file'];
 			case "js":
-				url = hostBuild("js", runTarget.opt, runTarget.opt != null ? ('$_currentApp.' + runTarget.opt + ".js") : '$_currentApp.js');
+				url = hostBuild("js", _currentApp, runTarget.opt, runTarget.opt != null ? ('$_currentApp.' + runTarget.opt + ".js") : '$_currentApp.js');
 				async = true;
 			case "swf":
-				url = hostBuild("flash", null, '$_currentApp.swf');
+				url = hostBuild("flash", _currentApp, null, '$_currentApp.swf');
 				async = true;
 			case "python":
 				cmd = "python3";
@@ -325,11 +307,10 @@ class SuiteBuildTask extends Task {
 		});
 	}
 
-	function hostBuild(target:String, ckind:String, bin:String):String {
+	function hostBuild(target:String, app:String, ckind:String, bin:String):String {
 		var tplName = 'browse-$target';
-		var hostedName = ckind != null ? '$tplName-$ckind.html' : '$tplName.html';
-		var mpp = Haxelib.libPath("hxsuite");
-		var tpl = new Template(File.getContent(Path.join([mpp, 'makeplugin/$tplName.html'])));
+		var hostedName = ckind != null ? '$app-$tplName-$ckind.html' : '$app-$tplName.html';
+		var tpl = new Template(File.getContent(Path.join([_hxsuitePath, 'makeplugin/$tplName.html'])));
 
 		if (!FileSystem.exists("host")) {
 			FileSystem.createDirectory("host");
@@ -353,7 +334,7 @@ class SuiteBuildTask extends Task {
 				onComplete();
 			}
 			else {
-				Sys.sleep(TARGET_PING_INVERVAL_MS / 1000);
+				Sys.sleep(TARGET_PING_INVERVAL_TIME);
 				waitTarget(target, _currentApp, opt, onComplete);
 			}
 		}
