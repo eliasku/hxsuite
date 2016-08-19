@@ -87,6 +87,14 @@ class SuiteBuildTask extends Task {
 			}
 		}
 
+		if (Sys.command("haxe", [
+			"-cp", Path.join([Haxelib.libPath("hxsuite"), "src"]),
+			"-main", "hxsuite.Host",
+			"-neko", "host/index.n"]) != 0) {
+
+			fail("Compile error");
+		}
+
 		_hostProcess = new Process("nekotools", ["server", "-p", Std.string(PORT), "-h", DOMAIN, "-d", "host/"]);
 		Sys.sleep(SERVE_START_WAIT_MS / 1000);
 		try {
@@ -104,11 +112,21 @@ class SuiteBuildTask extends Task {
 			_currentApp = _apps[_appIndex];
 		}
 		else {
-			openUrl(getUrl(["cmd" => "report"]));
+			openUrl(getUrl(["cmd" => "report"]), true);
 			Sys.sleep(SERVE_START_WAIT_MS / 1000);
 			Sys.println("Press any key to continue...");
-			while(Sys.getChar(false) == 0) {}
+			while(true) {
+				Sys.sleep(0.5);
+				var i = Sys.getChar(false);
+				Sys.println(i);
+				Sys.println("WIN");
+				if(i != 0) {
+					break;
+				}
+			}
+			Sys.println("END");
 			complete();
+			Sys.println("RETURN");
 			return;
 		}
 
@@ -120,14 +138,6 @@ class SuiteBuildTask extends Task {
 
 		for (t in _targets) {
 			optimize(t.target, t.opt);
-		}
-
-		if (Sys.command("haxe", [
-			"-cp", Path.join([Haxelib.libPath("hxsuite"), "src"]),
-			"-main", "hxsuite.Host",
-			"-neko", "host/index.n"]) != 0) {
-
-			fail("Compile error");
 		}
 
 		if (module.project.args.indexOf("-build") < 0) {
@@ -452,12 +462,16 @@ class SuiteBuildTask extends Task {
 		return 'http://${getHostName()}/' + getVariables(vars);
 	}
 
-	static function openUrl(url:String) {
+	static function openUrl(url:String, focus:Bool = false) {
 		if(CL.platform.isWindows) {
 			Sys.command("cmd /c start " + url);
 		}
 		else {
-			Sys.command("open", [url]);
+			var args = [url];
+			if(!focus) {
+				args.unshift("-g");
+			}
+			Sys.command("open", args);
 		}
 	}
 }
