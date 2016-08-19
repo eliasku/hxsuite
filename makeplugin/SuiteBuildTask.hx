@@ -251,6 +251,7 @@ class SuiteBuildTask extends Task {
 		var async = false;
 		var cmd = null;
 		var args = [];
+		var url = null;
 		var mainPath = main.split(".");
 		var mainName = mainPath[mainPath.length - 1];
 		switch(runTarget.target) {
@@ -268,14 +269,10 @@ class SuiteBuildTask extends Task {
 					('$_currentApp-node.' + runTarget.opt + ".js") :'$_currentApp-node.js';
 				args = ['build/$file'];
 			case "js":
-				var url = hostBuild("js", runTarget.opt, runTarget.opt != null ? ('$_currentApp.' + runTarget.opt + ".js") : '$_currentApp.js');
-				cmd = "open";
-				args = [url];
+				url = hostBuild("js", runTarget.opt, runTarget.opt != null ? ('$_currentApp.' + runTarget.opt + ".js") : '$_currentApp.js');
 				async = true;
 			case "swf":
-				var url = hostBuild("flash", null, '$_currentApp.swf');
-				cmd = "open";
-				args = [url];
+				url = hostBuild("flash", null, '$_currentApp.swf');
 				async = true;
 			case "python":
 				cmd = "python3";
@@ -301,10 +298,13 @@ class SuiteBuildTask extends Task {
 		}
 
 		postOpt(runTarget.opt, function() {
-			if(cmd == "open" && CL.platform.isWindows) {
-				cmd = "start";
+			if(url != null) {
+				openUrl(url);
 			}
-			Sys.command(cmd, args);
+			else {
+				Sys.command(cmd, args);
+			}
+
 			if (async) {
 				waitTarget(runTarget.target, _currentApp, runTarget.opt, onComplete);
 			}
@@ -444,7 +444,11 @@ class SuiteBuildTask extends Task {
 	}
 
 	static function openUrl(url:String) {
-		var cmd = CL.platform.isWindows ? "start" : "open";
-		Sys.command(cmd, [url]);
+		if(CL.platform.isWindows) {
+			Sys.command("start", ["", url]);
+		}
+		else {
+			Sys.command("open", [url]);
+		}
 	}
 }
