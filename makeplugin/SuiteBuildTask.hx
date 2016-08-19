@@ -340,6 +340,9 @@ class SuiteBuildTask extends Task {
 		}
 		http.onError = function(msg:String) {
 			Sys.println("HTTP ERROR: " + msg);
+			// retry
+			Sys.sleep(2 * TARGET_PING_INVERVAL_TIME);
+			waitTarget(target, _currentApp, opt, onComplete);
 		}
 		http.request(false);
 	}
