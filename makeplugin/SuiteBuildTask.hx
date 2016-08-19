@@ -87,6 +87,18 @@ class SuiteBuildTask extends Task {
 	}
 
 	override public function run() {
+		CL.workingDir.push(module.path);
+
+		for (app in _apps) {
+			_currentApp = app;
+			for (target in _targets) {
+				build(target.target, target.opt);
+			}
+			for (target in _targets) {
+				optimize(target.target, target.opt);
+			}
+		}
+
 		_hostProcess = new Process("nekotools", ["server", "-p", Std.string(PORT), "-h", DOMAIN, "-d", Path.join([module.path, "host"])]);
 		Sys.sleep(SERVE_START_WAIT_TIME);
 		try {
@@ -98,6 +110,8 @@ class SuiteBuildTask extends Task {
 		}
 
 		nextApp();
+
+		CL.workingDir.pop();
 	}
 
 	function nextApp() {
@@ -112,24 +126,12 @@ class SuiteBuildTask extends Task {
 			return;
 		}
 
-		CL.workingDir.push(module.path);
-
-		for (t in _targets) {
-			build(t.target, t.opt);
-		}
-
-		for (t in _targets) {
-			optimize(t.target, t.opt);
-		}
-
 		if (module.project.args.indexOf("-build") < 0) {
 			runTests(_targets.copy(), function() {
 				++_appIndex;
 				nextApp();
 			});
 		}
-
-		CL.workingDir.pop();
 	}
 
 	function runTests(targets:Array<RunTarget>, onComplete:Void -> Void) {
