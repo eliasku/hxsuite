@@ -106,13 +106,9 @@ class SuiteBuildTask extends Task {
 		else {
 			openUrl(getUrl(["cmd" => "report"]));
 			Sys.sleep(SERVE_START_WAIT_MS / 1000);
-			// complete
-			if(_hostProcess != null) {
-				_hostProcess.kill();
-				_hostProcess = null;
-			}
-			//Sys.exit(_hostProcess.exitCode());
-			Sys.exit(0);
+			Sys.println("Press any key to continue...");
+			while(Sys.getChar(false) == 0) {}
+			complete();
 			return;
 		}
 
@@ -284,8 +280,13 @@ class SuiteBuildTask extends Task {
 				cmd = javaBin;
 				args = ["-jar", 'build/$_currentApp-java/$mainName.jar'];
 			case "cs":
-				cmd = "mono";
-				args = ["-O=all", 'build/$_currentApp-cs/bin/$mainName.exe'];
+				if(CL.platform.isWindows) {
+					cmd = StringTools.replace('build/$_currentApp-cs/bin/$mainName.exe', "/", "\\");
+				}
+				else {
+					cmd = "mono";
+					args = ["-O=all", 'build/$_currentApp-cs/bin/$mainName.exe'];
+				}
 			case "php":
 				cmd = "php";
 				args = ['build/$_currentApp-php/index.php'];
@@ -368,6 +369,14 @@ class SuiteBuildTask extends Task {
 		http.request(false);
 	}
 
+	function complete() {
+		// complete
+		if(_hostProcess != null) {
+			_hostProcess.kill();
+			_hostProcess = null;
+		}
+	}
+
 	static function minify(input:String, opt:String, agressive:Bool) {
 		var output:String = Path.withExtension(input, opt + ".js");
 
@@ -383,8 +392,8 @@ class SuiteBuildTask extends Task {
 		}
 	}
 
-	static var javaBin = "/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/bin/java";
-	//static var javaBin = "java";
+	//static var javaBin = "/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/bin/java";
+	static var javaBin = "java";
 
 	static function yui(input:String, output:String):Bool {
 		if (!FileSystem.exists(input)) {
@@ -445,7 +454,7 @@ class SuiteBuildTask extends Task {
 
 	static function openUrl(url:String) {
 		if(CL.platform.isWindows) {
-			Sys.command("start", ["", url]);
+			Sys.command("cmd /c start " + url);
 		}
 		else {
 			Sys.command("open", [url]);

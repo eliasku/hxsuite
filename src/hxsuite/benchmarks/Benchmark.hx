@@ -49,11 +49,16 @@ class Benchmark {
 			result = new BenchmarkReport();
 			result.suite = className;
 			result.method = method;
+			trace("ops: " + ops);
+			trace("runs: " + runs);
+			trace("method: " + method);
 			result.ops = ops;
 			result.runs = runs;
 			reports.set(method, result);
 		}
 
+		trace("time: " + timeSeconds);
+		
 		if(timeSeconds > result.timeMax) {
 			result.timeMax = timeSeconds;
 		}
