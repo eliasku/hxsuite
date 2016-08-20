@@ -81,6 +81,7 @@ class SuiteBuildTask extends Task {
 		buildHost.name = "compile-web-host";
 		buildHost.hxml.classPath.push(Path.join([_hxsuitePath, "src"]));
 		buildHost.hxml.main = "hxsuite.Host";
+		buildHost.hxml.debug = true;
 		buildHost.hxml.target = HaxeTarget.Neko;
 		buildHost.hxml.output = Path.join([module.path, "host", "index.n"]);
 		prepend(buildHost);
@@ -99,7 +100,8 @@ class SuiteBuildTask extends Task {
 			}
 		}
 
-		_hostProcess = new Process("nekotools", ["server", "-p", Std.string(PORT), "-h", DOMAIN, "-d", Path.join([module.path, "host"])]);
+		_hostProcess = new Process("nekotools", ["server", "-p", Std.string(PORT), "-h", DOMAIN, "-d", Path.join([module.path, "host"]), 
+			"-log", "log.txt"]);
 		Sys.sleep(SERVE_START_WAIT_TIME);
 		try {
 			Sys.println(_hostProcess.stdout.readLine());
@@ -246,7 +248,12 @@ class SuiteBuildTask extends Task {
 		var mainName = mainPath[mainPath.length - 1];
 		switch(runTarget.target) {
 			case "cpp":
-				cmd = './build/$_currentApp-cpp/' + _mainClass;
+				if(CL.platform.isWindows) {
+					cmd = 'build\\$_currentApp-cpp\\$mainName.exe';
+				}
+				else {
+					cmd = './build/$_currentApp-cpp/$mainName';
+				}
 //			case "hl":
 //				cmd = "gcc";
 //				args = ["./build/hl.c"];
