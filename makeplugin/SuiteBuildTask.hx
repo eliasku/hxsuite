@@ -163,6 +163,9 @@ class SuiteBuildTask extends Task {
 		args.push("app=" + _currentApp);
 
 		for (lib in libraries.concat(["hxsuite"])) {
+			if(lib == "ecx" && _currentApp == "ecx2") {
+				lib = "ecx2";
+			}
 			args.push("-lib");
 			args.push(lib);
 		}
