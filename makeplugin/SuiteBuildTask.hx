@@ -163,7 +163,8 @@ class SuiteBuildTask extends Task {
 		args.push("app=" + _currentApp);
 
 		for (lib in libraries.concat(["hxsuite"])) {
-			if(lib == "ecx" && _currentApp == "ecx2") {
+			// TODO: remove hack for ecx
+			if(lib == "ecx" && _currentApp.indexOf("ecx2") == 0) {
 				lib = "ecx2";
 			}
 			args.push("-lib");
