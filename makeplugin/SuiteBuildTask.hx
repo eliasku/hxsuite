@@ -1,5 +1,4 @@
 import hxmake.utils.HaxeTarget;
-import hxmake.utils.Haxe;
 import hxmake.test.HaxeTask;
 import hxmake.utils.Haxelib;
 import hxmake.cli.CL;
@@ -163,10 +162,6 @@ class SuiteBuildTask extends Task {
 		args.push("app=" + _currentApp);
 
 		for (lib in libraries.concat(["hxsuite"])) {
-			// TODO: remove hack for ecx
-			if(lib == "ecx" && _currentApp.indexOf("ecx2") == 0) {
-				lib = "ecx2";
-			}
 			args.push("-lib");
 			args.push(lib);
 		}
