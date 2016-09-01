@@ -1,6 +1,6 @@
 {
 	"name": "hxsuite",
-	"license": "https://github.com/eliasku/hxsuite",
+	"license": "MIT",
 	"tags": [
 		"hxmake",
 		"cross",
@@ -13,5 +13,6 @@
 	"contributors": [
 		"eliasku"
 	],
-	"version": "0.0.1"
+	"version": "0.0.1",
+	"url": "https://github.com/eliasku/hxsuite"
 }

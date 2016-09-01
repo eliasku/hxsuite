@@ -87,8 +87,6 @@ class SuiteBuildTask extends Task {
 	}
 
 	override public function run() {
-		CL.workingDir.push(module.path);
-
 		for (app in _apps) {
 			_currentApp = app;
 			for (target in _targets) {
@@ -111,8 +109,6 @@ class SuiteBuildTask extends Task {
 		}
 
 		nextApp();
-
-		CL.workingDir.pop();
 	}
 
 	function nextApp() {
