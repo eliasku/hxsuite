@@ -207,6 +207,8 @@ class SuiteBuildTask extends Task {
 			case "cs":
 				args.push("-cs");
 				args.push('build/$_currentApp-cs');
+				args.push("-D");
+				args.push("unsafe");
 			case "php":
 				args.push("-php");
 				args.push('build/$_currentApp-php');
