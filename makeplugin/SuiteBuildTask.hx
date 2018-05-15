@@ -1,13 +1,13 @@
-import hxmake.utils.HaxeTarget;
+import haxe.io.Path;
+import haxe.Template;
+import hxmake.cli.CL;
+import hxmake.Task;
 import hxmake.test.HaxeTask;
 import hxmake.utils.Haxelib;
-import hxmake.cli.CL;
+import hxmake.utils.HaxeTarget;
 import sys.FileSystem;
-import haxe.io.Path;
 import sys.io.File;
-import haxe.Template;
 import sys.io.Process;
-import hxmake.Task;
 
 typedef RunTarget = {
 	var target:String;
@@ -49,10 +49,10 @@ class SuiteBuildTask extends Task {
 		var typePath = main.split(".");
 		_mainClass = typePath[typePath.length - 1];
 
-		for (arg in module.project.args) {
+		for (arg in module.project.arguments.args) {
 			if (arg.indexOf("-target=") == 0) {
 				var targets = arg.substr("-target=".length).split(",");
-				for(targetId in targets) {
+				for (targetId in targets) {
 					_targets.push({target: targetId});
 				}
 			}
@@ -63,13 +63,13 @@ class SuiteBuildTask extends Task {
 		}
 
 		if (_apps.length == 0) {
-			for(app in defaultApps) {
+			for (app in defaultApps) {
 				_apps.push(app);
 			}
 		}
 
 		if (_targets.length == 0) {
-			for(targetId in defaultTargets) {
+			for (targetId in defaultTargets) {
 				_targets.push({ target: targetId });
 			}
 		}
@@ -97,8 +97,8 @@ class SuiteBuildTask extends Task {
 			}
 		}
 
-		_hostProcess = new Process("nekotools", ["server", "-p", Std.string(PORT), "-h", DOMAIN, "-d", Path.join([module.path, "host"]), 
-			"-log", "log.txt"]);
+		_hostProcess = new Process("nekotools", ["server", "-p", Std.string(PORT), "-h", DOMAIN, "-d", Path.join([module.path, "host"]),
+		"-log", "log.txt"]);
 		Sys.sleep(SERVE_START_WAIT_TIME);
 		try {
 			Sys.println(_hostProcess.stdout.readLine());
@@ -123,7 +123,7 @@ class SuiteBuildTask extends Task {
 			return;
 		}
 
-		if (module.project.args.indexOf("-build") < 0) {
+		if (!module.project.arguments.hasProperty("-build")) {
 			runTests(_targets.copy(), function() {
 				++_appIndex;
 				nextApp();
@@ -245,7 +245,7 @@ class SuiteBuildTask extends Task {
 		var mainName = mainPath[mainPath.length - 1];
 		switch(runTarget.target) {
 			case "cpp":
-				if(CL.platform.isWindows) {
+				if (CL.platform.isWindows) {
 					cmd = 'build\\$_currentApp-cpp\\$mainName.exe';
 				}
 				else {
@@ -260,7 +260,7 @@ class SuiteBuildTask extends Task {
 			case "node":
 				cmd = "node";
 				var file = runTarget.opt != null ?
-					('$_currentApp-node.' + runTarget.opt + ".js") :'$_currentApp-node.js';
+				('$_currentApp-node.' + runTarget.opt + ".js") : '$_currentApp-node.js';
 				args = ['build/$file'];
 			case "js":
 				url = hostBuild("js", _currentApp, runTarget.opt, runTarget.opt != null ? ('$_currentApp.' + runTarget.opt + ".js") : '$_currentApp.js');
@@ -278,7 +278,7 @@ class SuiteBuildTask extends Task {
 				cmd = javaBin;
 				args = ["-jar", 'build/$_currentApp-java/$mainName.jar'];
 			case "cs":
-				if(CL.platform.isWindows) {
+				if (CL.platform.isWindows) {
 					cmd = StringTools.replace('build/$_currentApp-cs/bin/$mainName.exe', "/", "\\");
 				}
 				else {
@@ -297,7 +297,7 @@ class SuiteBuildTask extends Task {
 		}
 
 		postOpt(runTarget.opt, function() {
-			if(url != null) {
+			if (url != null) {
 				openUrl(url);
 			}
 			else {
@@ -329,10 +329,10 @@ class SuiteBuildTask extends Task {
 	function waitTarget(target:String, app:String, opt:String, onComplete:Void -> Void) {
 		Sys.println("WAITING " + target);
 		var url = getUrl([
-			"cmd" => "status",
-			"opt" => opt,
-			"app" => app,
-			"target" => target
+		"cmd" => "status",
+		"opt" => opt,
+		"app" => app,
+		"target" => target
 		]);
 		var http = new haxe.Http(url);
 		http.onData = function(data:String) {
@@ -355,8 +355,8 @@ class SuiteBuildTask extends Task {
 
 	static function postOpt(opt:String, onComplete:Void -> Void) {
 		var url = getUrl([
-			"cmd" => "opt",
-			"opt" => opt
+		"cmd" => "opt",
+		"opt" => opt
 		]);
 		var http = new haxe.Http(url);
 		http.onData = function(data:String) {
@@ -371,7 +371,7 @@ class SuiteBuildTask extends Task {
 
 	function complete() {
 		// complete
-		if(_hostProcess != null) {
+		if (_hostProcess != null) {
 			_hostProcess.kill();
 			_hostProcess = null;
 		}
@@ -439,9 +439,9 @@ class SuiteBuildTask extends Task {
 
 	static function getVariables(map:Map<String, String>):String {
 		var vars = [];
-		for(key in map.keys()) {
+		for (key in map.keys()) {
 			var value = map.get(key);
-			if(value != null) {
+			if (value != null) {
 				vars.push('$key=$value');
 			}
 		}
@@ -453,12 +453,12 @@ class SuiteBuildTask extends Task {
 	}
 
 	static function openUrl(url:String, focus:Bool = false) {
-		if(CL.platform.isWindows) {
+		if (CL.platform.isWindows) {
 			Sys.command("cmd /c start " + url);
 		}
 		else {
 			var args = [url];
-			if(!focus) {
+			if (!focus) {
 				args.unshift("-g");
 			}
 			Sys.command("open", args);
